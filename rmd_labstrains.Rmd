@@ -1,0 +1,367 @@
+---
+title: "doc_labstrains"
+author: "Kaitlin A. Schaal"
+date: "2023-03-08"
+output: html_document
+knit: (function(inputFile, encoding) { 
+          rmarkdown::render(inputFile,
+                        encoding=encoding, 
+                        output_file='doc_labstrains')})
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This script analyzes the data set data_labstrains.csv. These data are from an experiment testing how the ability of known cheaters to cheat on a wild-type strain, when mixed pairwise at a 1:1 ratio before undergoing development on nutrient-free agar, is affected when one or both strains was grown, prior to mixture/development, in a low-nutrient condition (5x lower than the standard growth condition, which is here referred to as high nutrient) as opposed to the standard growth condition.
+
+```{r echo = FALSE, message = FALSE}
+# settings and functions
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(DescTools)
+
+# ggplot2 settings to make the plots pretty
+customPlotTheme <- theme_bw(base_size = 16, base_family = "") +
+  theme(legend.title = element_text(size = rel(0.8)),
+        legend.text = element_text(size = rel(0.8)),
+        # background grid
+        strip.background = element_rect(colour="grey",
+                                        fill=FALSE,
+                                        linewidth=0.1,
+                                        linetype="solid"))
+```
+
+### 1: visualize the data
+
+```{r}
+data <- read.csv("data_labstrains.csv")
+str(data)
+
+# remove the data for csgA, which we don't use because it didn't show cheating under standard conditions, which is what we are specifically interested in
+data <- data[which(!(data$strain == "csgA")),]
+# remove data for replicate 2 for WT:Ch1 where Ch1 experienced high nutrients, because CFU plates were contaminated
+data <- data[which(!(data$replicate == 2 & data$strain == "Ch1" & data$nutrients == "high")),]
+
+data$plate <- as.factor(data$plate)
+data$strain <- as.factor(data$strain)
+data$nutrients <- as.factor(data$nutrients)
+data$strain2 <- as.factor(data$strain2)
+data$nutrients2 <- as.factor(data$nutrients2)
+data$antibiotics <- as.factor(data$antibiotics)
+
+# for counts of zero CFUs, calculate the maximum undetectable number of CFUs.
+for (i in 1:nrow(data)) {
+  if (data$cfus[i] == 0) data$cfus[i] <- 0.9
+}
+
+# calculate the total number of spores
+data <- mutate(data, numspores = cfus * 10^dilution)
+data <- mutate(data, logspores = log10(numspores + 1))
+str(data)
+```
+
+```{r}
+pdata <- ggplot(data, aes(x = strain, y = logspores, color = strain2, shape = nutrients2)) +
+  geom_point(size = 2, alpha = 0.3, show.legend = FALSE, position = position_dodge(width = 0.5)) +
+  stat_summary(fun.data = "mean_cl_normal", size = 0.7, aes(y = logspores), position = position_dodge(width = 0.5)) +
+  facet_wrap(~nutrients, dir = "v", ncol = 2) +
+  labs(y = expression(Log[10]("spore count")), x = "Strain", color = "Partner", shape = "Partner nutrients") +
+  customPlotTheme
+pdata
+```
+
+It looks like for Ch1 and Ch2, spoulation is lower when partner nutrients are low, regardless of own nutrient level.
+
+#### 1.1: checking marker effects
+
+Clonal cultures of each strain were germinated in media with or without antibiotic as a control for the effect of the antibiotic on viable spore counts. As expected, WT did not produce spores in the presence of the antibiotic, as can be seen by the 0 counts in the initial data table. We look at the effect of antibiotics on the CFUs counts obtained from the cheater strains.
+
+```{r}
+# select the data for the cheaters in pure culture and remove levels from the parent data set that are no longer present
+dataTest <- data[which(data$strain2 == "none" & data$strain != "WT"),]
+dataTest <- droplevels(dataTest)
+
+pmarker <- ggplot(dataTest, aes(x = strain, y = logspores, color = antibiotics, label = replicate)) +
+  geom_point(size = 2, alpha = 0.3, show.legend = FALSE, position = position_dodge(width = 0.2)) +
+  stat_summary(fun.data = "mean_cl_normal", size = 0.7, aes(y = logspores), position = position_dodge(width = 0.2)) +
+  facet_wrap(~nutrients, dir = "v", ncol = 2) +
+  geom_text(position = position_dodge(width = 0.5), show.legend = FALSE) +
+  labs(y = expression(Log[10]("spore count")), x = "Partner") +
+  customPlotTheme
+pmarker
+```
+
+For each strain under each condition, we check for evidence of no effect by looking at the confidence intervals for the difference in means.
+
+```{r}
+# initialize a data frame to store the resulting confidence intervals for each test
+cis <- data.frame(strains = levels(dataTest$plate), mean = 1, lower = 1, upper = 1)
+
+# for each strain under low or high nutrients, test the difference in means with vs without antibiotic, paired by replicate
+for (i in 1:length(levels(dataTest$plate))) {
+  x = dataTest[which(dataTest$plate == levels(dataTest$plate)[i] & dataTest$antibiotics == "none"), "logspores"]
+  y = dataTest[which(dataTest$plate == levels(dataTest$plate)[i] & dataTest$antibiotics == "rif"), "logspores"]
+  result <- MeanDiffCI(x, y, method = "classic", conf.level = 0.95, sides = "two.sided", paired = TRUE)
+  cis[i,2] <- result[1]
+  cis[i,3] <- result[2]
+  cis[i,4] <- result[3]
+}
+cis
+```
+
+There is no difference between with or without antibiotic for Ch2 grown at low nutrient because it doesn't produce spores. The most difference the antibiotic treatment might produce is a 10- to 100-fold decrease in CFU count in Ch1. However, keep in mind that we are measuring at the very low end of the range of spore production values. Overall, we conclude that there is reasonable evidence application of antibiotic may not significantly impact the number of CFUs counted.
+
+
+### 2: pure culture spoulation in different nutrient conditions
+
+```{r}
+dataPC <- data[which(data$strain2 == "none"),]
+dataPC <- dataPC[which(!(dataPC$strain == "WT" & dataPC$antibiotics == "rif")),]
+dataPC <- dataPC[which(!(dataPC$strain != "WT" & dataPC$antibiotics == "none")),]
+```
+
+```{r}
+pPC <- ggplot(dataPC, aes(x = strain, y = logspores, color = nutrients)) +
+  geom_point(size = 2, alpha = 0.3, show.legend = FALSE, position = position_dodge(width = 0.5)) +
+  stat_summary(fun.data = "mean_cl_normal", size = 0.7, aes(y = logspores), position = position_dodge(width = 0.5)) +
+  coord_cartesian(ylim = c(0,8)) +
+  labs(y = expression(Log[10]("spore count")), x = "Strain in pure culture", title = "A") +
+  customPlotTheme +
+  scale_color_viridis_d(option = "magma", begin = 0.25, end = 0.8, direction = 1)
+pPC
+```
+
+#### 2.1: statistics
+
+We are interested in whether prior nutrient conditions affect sporulation of the WT strain or the cheater strains when grown in monoculture. We run an ANOVA for strain ID x nutrient level affecting log(spore estimate).
+
+```{r}
+fit <- aov(logspores ~ strain * nutrients, data = dataPC)
+summary(fit)
+plot(fit)
+```
+
+The qqplot looks reasonable, so we continue under the assumption of normality. The interaction of strain and nutrient level is significant, so we run a set of t-tests for difference of means between high and low nutrient conditions for each strain.
+
+```{r}
+# test whether there is a difference in estimated spore production between high and low nutrients for each strain
+
+# initialize a data frame to store the resulting p-value, mean, and 95% CI for each test
+cis <- data.frame(strains = levels(dataPC$strain), pval = 1, tstat = 1, df = 1, stdev = 1, meanHigh = 1, meanLow = 1, CIlower = 1, CIupper = 1)
+
+# initialize a vector to store the p-values from each test so that they can be corrected for multiple testing
+pvalues <- c()
+
+# run the iterated tests
+for (i in 1:length(levels(dataPC$strain))) {
+  n = 4 # the number of samples
+  dataTest <- subset(dataPC, strain == levels(dataPC$strain)[i])
+  res <- t.test(dataTest$logspores ~ dataTest$nutrients, alternative = "two.sided", mu = 0)
+  pvalues <- c(pvalues, res$p.value)
+  cis[i,3] <- res$statistic
+  cis[i,4] <- res$parameter
+  cis[i,5] <- res$stderr * n^2
+  cis[i,6] <- as.numeric(res$estimate[1])
+  cis[i,7] <- as.numeric(res$estimate[2])
+  cis[i,8] <- as.numeric(res$conf.int[1])
+  cis[i,9] <- as.numeric(res$conf.int[2])
+}
+
+# do the multiple testing correction
+pCorr <- round(p.adjust(pvalues, method = "BH"), 4)
+
+# enter the corrected p-values into the data frame
+for (i in 1:nrow(cis)) {
+  cis[i,2] <- pCorr[i]
+}
+cis
+```
+
+We find no convincing evidence for a difference in pure-culture sporulation based on prior nutrient conditions in any of the strains.
+
+```{r}
+# power.t.test(n = 4, delta = 1, sd = 14.52, sig.level = 0.05, type = "two.sample", alternative = "two.sided")
+
+
+# The t-test does not have enough power to detect 1 log of difference between nutrient treatments for csgA. From the graph, we do see a large increase in variance under the low nutrient condition, which is something we can analyze using an F-test.
+
+
+# var.test(logspores ~ nutrients, data = dataPC[which(dataPC$strain == "csgA"),], alternative = "two.sided")
+
+
+# There is significantly more variation in csgA sporulation after the low nutrient treatment.
+```
+
+
+### 3: analyze cheating
+
+As in previous literature, we assess cheating by defective strains by computing the relative fitness measure Wij. If a strain is defective in pure culture (producing significantly fewer spores than it's closest WT relative) but has a higher relative fitness (or positive Wij) in mixture with that relative, then we say that it cheats.
+
+Wij =  log10(number spores of cheater in mixture/number initial cells of cheater in mixture) - log10(number spores of partner in mixture/number initial cells of partner in mixture).
+
+This is equivalent to
+
+Wij =  log10(initial mixing ratio of partner:cheater * number spores of cheater in mixture/number spores of partner in mixture).
+
+```{r}
+dataC <- data[which(data$strain2 != "none" & data$antibiotics == "rif"),] # take the cheaters in mixture
+dataT <- data[which(data$strain2 != "none" & data$antibiotics == "none"),] # take the mixture totals
+
+dataC <- mutate(dataC, wij = 17)
+for (i in 1:nrow(dataC)) {
+  dataC$wij[i] <- log10(9 * dataC$numspores[i]/(dataT$numspores[i] - dataC$numspores[i])) # 9:1 being the mixing ratio of partner:cheater, and we get the number of partner spores by subtracting the cheater spores from the total
+}
+```
+
+```{r}
+pC <- ggplot(dataC, aes(x = nutrients2, y = wij, color = nutrients, shape = nutrients, label = replicate)) +
+  geom_abline(slope = 0, intercept = 0, color = "grey") +
+  geom_point(size = 2, alpha = 0.3, show.legend = FALSE, position = position_dodge(width = 0.5)) +
+  stat_summary(fun.data = "mean_cl_normal", size = 0.7, aes(y = wij), position = position_dodge(width = 0.5)) +
+  facet_wrap(~strain, dir = "h", ncol = 3) +
+  labs(y = "Relative fitness ("~italic(W[ij])~")", x = "WT nutrient history", color = "Cheater\nnutrient\nhistory", shape = "Cheater\nnutrient\nhistory", title = "A") +
+  #geom_text(nudge_x = 0.3) +
+  customPlotTheme +
+  scale_color_viridis_d(option = "magma", begin = 0.25, end = 0.8, direction = 1)
+pC
+```
+
+In replicate 4 for WT low:csgA low, CFU counts on antibiotic plates were higher than on non-selective plates. This graph assumes that csgA produced all the spores.
+
+Show total spore counts for each strain in mixture.
+
+```{r}
+# calculate sporulation by WT in mixtures
+dataW <- dataT[,1:10]
+for (i in 1:nrow(dataW)) {
+  dataW$numspores[i] <- dataW$numspores[i] - dataC$numspores[i]
+}
+dataW <- mutate(dataW, logspores = log10(numspores + 1))
+
+# add a count column to distinguish cheater and WT counts
+dataW <- mutate(dataW, count = "WT")
+dataC <- mutate(dataC, count = "cheater")
+
+# combine the data frames
+dataW <- bind_rows(dataW, dataC)
+```
+
+
+```{r}
+pCspores <- ggplot(dataW, aes(x = nutrients2, y = logspores, color = count, shape = nutrients)) +
+  geom_abline(slope = 0, intercept = 0, color = "grey") +
+  geom_point(size = 2, alpha = 0.3, show.legend = FALSE, position = position_dodge(width = 0.5)) +
+  stat_summary(fun.data = "mean_cl_normal", size = 0.7, aes(y = logspores), position = position_dodge(width = 0.5)) +
+  facet_wrap(~strain, dir = "h", ncol = 3) +
+  labs(y = expression(Log[10]("spore count")), x = "WT nutrient history", shape = "Cheater\nnutrient\nhistory", color = "Strain") +
+  customPlotTheme +
+  coord_cartesian(ylim = c(0,NA)) +
+  scale_color_viridis_d(option = "magma", begin = 0.25, end = 0.8, direction = 1)
+pCspores
+```
+
+#### 3.1: statistics
+
+We first want to test whether Ch1 and Ch2 cheat under standard (high/high) conditions. We have an a priori expectation of cheating in these cases, based on existing literature, so we use single t-tests.
+
+```{r}
+c("Ch1")
+t.test(dataC[which(dataC$strain == "Ch1" & dataC$nutrients == "high" & dataC$nutrients2 == "high"), "wij"], alternative = "greater", mu = 0)
+
+c("Ch2")
+t.test(dataC[which(dataC$strain == "Ch2" & dataC$nutrients == "high" & dataC$nutrients2 == "high"), "wij"], alternative = "greater", mu = 0)
+```
+
+We now test for cheating across the remaining conditions.
+
+```{r}
+dataT <- dataC[which(!(dataC$strain == "Ch1" & dataC$nutrients == "high" & dataC$nutrients2 == "high")),]
+dataT <- dataT[which(!(dataT$strain == "Ch2" & dataT$nutrients == "high" & dataT$nutrients2 == "high")),]
+dataT <- droplevels(dataT)
+
+# initialize a data frame to store the resulting p-value, mean, and 95% CI for each test
+ttests <- data.frame(strains = levels(dataT$plate), pval = 1, tstat = 1, df = 1, stdev = 1, mean = 1, CIlower = 1, CIupper = 1)
+
+# initialize a vector to store the p-values from each test so that they can be corrected for multiple testing
+pvalues <- c()
+
+# run the iterated tests
+for (i in 1:length(levels(dataT$plate))) {
+  n = 4 # the number of samples
+  dataTest <- subset(dataT, plate == levels(dataT$plate)[i])
+  res <- t.test(dataTest$wij, alternative = "greater", mu = 0)
+  pvalues <- c(pvalues, res$p.value)
+  ttests[i,3] <- res$statistic
+  ttests[i,4] <- res$parameter
+  ttests[i,5] <- res$stderr * n^2
+  ttests[i,6] <- as.numeric(res$estimate[1])
+  ttests[i,7] <- as.numeric(res$conf.int[1])
+  ttests[i,8] <- as.numeric(res$conf.int[2])
+}
+
+# do the multiple testing correction
+pCorr <- round(p.adjust(pvalues, method = "BH"), 4)
+
+# enter the corrected p-values into the data frame
+for (i in 1:nrow(ttests)) {
+  ttests[i,2] <- pCorr[i]
+}
+ttests
+```
+
+
+We want to know how Wij may differ across nutrient conditions (of cheater and WT) and cheaters. We run an ANOVA for wij ~ strain * nutrients (cheater) * nutrients2 (WT)
+
+```{r}
+fit <- aov(wij ~ strain * nutrients * nutrients2, data = dataC)
+plot(fit)
+summary(fit)
+```
+
+
+The qqplot looks reasonably normal, so we proceed under the assumption of normality. There is a suggestion that interactions with strain may be significant, so we run individual models for each strain.
+
+##### 3.1.1: Ch1
+
+```{r}
+fit <- aov(wij ~ nutrients * nutrients2, data = dataC[which(dataC$strain == "Ch1"),])
+summary(fit)
+TukeyHSD(fit)
+```
+
+Here the interaction between nutrients of the cheater and of the WT is not significant. Only that of the WT is significant (p = 0.00186), indicating that Wij depends only on the nutrient condition of the WT.
+
+##### 3.1.2: Ch2
+
+```{r}
+fit <- aov(wij ~ nutrients * nutrients2, data = dataC[which(dataC$strain == "Ch2"),])
+summary(fit)
+TukeyHSD(fit)
+```
+
+Here the interaction between nutrients of the cheater and of the WT is not significant. Only nutrient conditions in isolation are significant (pcheater = 0.000005, pWT = 0.000893), indicating that the cheater's nutrient condition matters, but the relative reaction of the cheater to its own nutrient condition is the same regardless of the nutrient condition of the WT.
+
+
+### Output figures
+
+```{r}
+# we alter the graph to fit into the combined figure
+pPC <- ggplot(dataPC, aes(x = strain, y = logspores, color = nutrients)) +
+  geom_point(size = 2, alpha = 0.3, show.legend = FALSE, position = position_dodge(width = 0.5)) +
+  stat_summary(fun.data = "mean_cl_normal", size = 0.7, aes(y = logspores), position = position_dodge(width = 0.5), show.legend = FALSE) +
+  coord_cartesian(ylim = c(0,8)) +
+  labs(y = expression(Log[10]("spore count")), x = "Strain in pure culture", title = "A") +
+  customPlotTheme +
+  scale_color_viridis_d(option = "magma", begin = 0.25, end = 0.8, direction = 1)
+pPC
+```
+
+
+```{r echo = FALSE, include = FALSE}
+# save the figure files
+#ggsave(pPC, filename = "Fig1_labstrains.png", width = 15, height = 10, units = "cm") # instead, run this code and then run the code of "rmd_naturalisolates.Rmd" so that this plot can be combined with the plot for the natural isolates into a single figure
+ggsave(pC, filename = "Fig2_labstrains.png", width = 15, height = 10, units = "cm")
+ggsave(pCspores, filename = "FigS1_labstrains.png", width = 15, height = 10, units = "cm")
+```

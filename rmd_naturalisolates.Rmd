@@ -1,0 +1,578 @@
+---
+title: "doc_naturalisolates"
+author: "Kaitlin A. Schaal"
+date: "2023-02-03"
+output: html_document
+knit: (function(inputFile, encoding) { 
+          rmarkdown::render(inputFile,
+                        encoding=encoding, 
+                        output_file='doc_naturalisolates')})
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This script analyzes the data set data_naturalisolates.csv. These data are from an experiment testing the fitness relationships among three natural isolates when mixed pairwise at a 1:1 ratio before undergoing development on nutrient-free agar, and how those fitness relationships were affected when one or both strains were grown, prior to mixture/development, in a low-nutrient condition (5x lower than the standard growth condition, which is here referred to as high nutrient).
+
+```{r echo = FALSE, message = FALSE}
+# settings and functions
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(DescTools)
+
+# ggplot2 settings to make the plots pretty
+customPlotTheme <- theme_bw(base_size = 16, base_family = "") +
+  theme(legend.title = element_text(size = rel(0.8)),
+        legend.text = element_text(size = rel(0.8)),
+        # background grid
+        strip.background = element_rect(colour="grey",
+                                        fill=FALSE,
+                                        linewidth=0.1,
+                                        linetype="solid"))
+
+# summarySE() function
+## obtained from http://www.cookbook-r.com/Graphs/Plotting_means_and_error_bars_(ggplot2)/#Helper functions
+## to calculate means and 95% confidence intervals:
+## Gives count, mean, standard deviation, standard error of the mean, and confidence interval (default 95%).
+##   data: a data frame.
+##   measurevar: the name of a column that contains the variable to be summariezed
+##   groupvars: a vector containing names of columns that contain grouping variables
+##   na.rm: a boolean that indicates whether to ignore NA's
+##   conf.interval: the percent range of the confidence interval (default is 95%)
+summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,
+                      conf.interval=.95, .drop=TRUE) {
+  #library(plyr)
+  
+  # New version of length which can handle NA's: if na.rm==T, don't count them
+  length2 <- function (x, na.rm=FALSE) {
+    if (na.rm) sum(!is.na(x))
+    else       length(x)
+  }
+  
+  # This does the summary. For each group's data frame, return a vector with
+  # N, mean, and sd
+  datac <- plyr::ddply(data, groupvars, .drop=.drop,
+                       .fun = function(xx, col) {
+                         c(N    = length2(xx[[col]], na.rm=na.rm),
+                           mean = mean   (xx[[col]], na.rm=na.rm),
+                           sd   = sd     (xx[[col]], na.rm=na.rm)
+                         )
+                       },
+                       measurevar
+  )
+  
+  # Rename the "mean" column    
+  datac <- plyr::rename(datac, c("mean" = measurevar))
+  
+  datac$se <- datac$sd / sqrt(datac$N)  # Calculate standard error of the mean
+  
+  # Confidence interval multiplier for standard error
+  # Calculate t-statistic for confidence interval: 
+  # e.g., if conf.interval is .95, use .975 (above/below), and use df=N-1
+  ciMult <- qt(conf.interval/2 + .5, datac$N-1)
+  datac$ci <- datac$se * ciMult
+  
+  return(datac)
+}
+```
+
+### 1: visualize the data
+
+```{r}
+data <- read.csv("data_naturalisolates.csv")
+str(data)
+
+# remove data for replicate 1 for D:I mixes, because there was a technical issue with the selective plates
+data <- data[which(!(data$replicate == 1 & data$strain == "D" & data$strain2 == "I")),]
+
+data$plate <- as.factor(data$plate)
+data$strain <- as.factor(data$strain)
+data$nutrients <- as.factor(data$nutrients)
+data$strain2 <- as.factor(data$strain2)
+data$nutrients2 <- as.factor(data$nutrients2)
+data$antibiotics <- as.factor(data$antibiotics)
+
+# rearrange the order of strains
+data$strain <- factor(data$strain, levels = c("D", "DK801", "I", "G", "Mxx41"))
+data$pair <- factor(data$pair, levels = c("none", "D:I", "D:G", "I:G"))
+
+# for counts of zero CFUs, calculate the maximum undetectable number of CFUs.
+for (i in 1:nrow(data)) {
+  if (data$cfus[i] == 0) data$cfus[i] <- 0.9
+}
+
+# calculate the total number of spores
+data <- mutate(data, numspores = cfus * 10^dilution)
+data <- mutate(data, logspores = log10(numspores + 1))
+str(data)
+```
+
+
+```{r}
+pdata <- ggplot(data, aes(x = strain2, y = logspores, color = nutrients, shape = nutrients2)) +
+  geom_point(size = 2, alpha = 0.3, show.legend = FALSE, position = position_dodge(width = 0.5)) +
+  stat_summary(fun.data = "mean_cl_normal", size = 0.7, aes(y = logspores), position = position_dodge(width = 0.5)) +
+  facet_wrap(~strain, dir = "v", ncol = 3) +
+  labs(y = expression(Log[10]("spore count")), x = "Partner") +
+  customPlotTheme
+pdata
+```
+
+#### 1.1: checking marker effects
+
+Clonal cultures of each strain were germinated in media with or without antibiotic as a control for the effect of the antibiotic on viable spore counts. As expected, GJV1 did not produce spores in the presence of the antibiotic, as can be seen by the 0 counts in the initial data table. We look at the effect of antibiotics on the cheater strains.
+
+```{r}
+# select the data for the cheaters in pure culture and remove levels from the parent data set that are no longer present
+dataTest <- data[which(data$strain2 == "none"),]
+dataTest <- droplevels(dataTest)
+
+pmarker <- ggplot(dataTest, aes(x = strain, y = logspores, color = antibiotics, label = replicate)) +
+  geom_point(size = 2, alpha = 0.3, show.legend = FALSE, position = position_dodge(width = 0.2)) +
+  stat_summary(fun.data = "mean_cl_normal", size = 0.7, aes(y = logspores), position = position_dodge(width = 0.2)) +
+  facet_wrap(~nutrients, dir = "v", ncol = 2) +
+  geom_text(position = position_dodge(width = 0.5), show.legend = FALSE) +
+  labs(y = expression(Log[10]("spore count")), x = "Partner") +
+  customPlotTheme
+pmarker
+```
+
+D may sporulate better than its ancestor. G's ancestor was only assayed at high nutrients and no antibiotics. D's ancestor and I carry no resistance markers, and are seen to produce no spores when germinated in the presence of antibiotic.
+
+Only D and G need be tested for the effect of antibiotic on CFU counts. We check for evidence of no effect by looking at the confidence intervals for the difference in means.
+
+```{r}
+dataTest <- dataTest[which(dataTest$strain == "D" | dataTest$strain == "G"),]
+dataTest <- droplevels(dataTest)
+
+# initialize a data frame to store the resulting confidence intervals for each test
+cis <- data.frame(strains = levels(dataTest$plate), mean = 1, lower = 1, upper = 1)
+
+# for each strain under low or high nutrients, test the difference in means with vs without antibiotic, paired by replicate
+for (i in 1:length(levels(dataTest$plate))) {
+  x = dataTest[which(dataTest$plate == levels(dataTest$plate)[i] & dataTest$antibiotics == "none"), "logspores"]
+  y = dataTest[which(dataTest$plate == levels(dataTest$plate)[i] & dataTest$antibiotics != "none"), "logspores"]
+  result <- MeanDiffCI(x, y, method = "classic", conf.level = 0.95, sides = "two.sided", paired = TRUE)
+  cis[i,2] <- result[1]
+  cis[i,3] <- result[2]
+  cis[i,4] <- result[3]
+}
+cis
+```
+
+There is at most less than half a log of difference in CFU counts in the presence of antibiotic for G. For D, the difference could be up to a log. Overall, the average differences are considered reasonably low, and we proceed.
+
+
+### 2: pure culture spoulation in different nutrient conditions
+
+```{r}
+dataPC <- data[which(data$strain2 == "none" & data$strain != "DK801"),]
+dataPC <- dataPC[which(!(dataPC$strain == "I" & dataPC$antibiotics != "none")),]
+dataPC <- dataPC[which(!(dataPC$strain != "I" & dataPC$antibiotics == "none")),]
+dataPC <- droplevels(dataPC)
+```
+
+```{r}
+pPC2 <- ggplot(dataPC, aes(x = strain, y = logspores, color = nutrients)) +
+  geom_point(size = 2, alpha = 0.3, show.legend = FALSE, position = position_dodge(width = 0.5)) +
+  stat_summary(fun.data = "mean_cl_normal", size = 0.7, aes(y = logspores), position = position_dodge(width = 0.5)) +
+  coord_cartesian(ylim = c(0,8)) +
+  labs(y = expression(Log[10]("spore count")), x = "Strain in pure culture", title = "B") +
+  customPlotTheme +
+  scale_color_viridis_d(option = "magma", begin = 0.25, end = 0.8, direction = 1)
+pPC2
+```
+
+#### 2.1: statistics
+
+For each strain, is there a difference in pure culture sporulation based on nutrient condition? We run an ANOVA
+
+```{r}
+fit <- aov(logspores ~ nutrients * strain, data = dataPC)
+plot(fit)
+summary(fit)
+```
+
+The qqplot looks ok. We proceed under the assumption of normality. There is a significant effect of strain (strains produce different numbers of spores), but there is no evidence of an interaction effect or of an effect of nutrient condition on its own. We run a new model with strain alone and use post-hoc Tukey tests to see the differences among the strains.
+
+```{r}
+fit <- aov(logspores ~ strain, data = dataPC)
+plot(fit)
+summary(fit)
+TukeyHSD(fit)
+```
+
+Strain G is estimated to produce more spores than D, but this is not significant and therefore cannot be assumed to be true. However, strain I produces more spores than both G (p = 0.03) and D (p = 0.0003).
+
+### 3: calculate the mixing effect
+
+We first calculate the sporulation of each strain in mixture.
+
+```{r}
+data2 <- data[which(data$strain != "DK801" & data$strain != "Mxx41"),]
+data2 <- data2[which(!(data2$antibiotics == "none" & data2$strain2 == "none" & data2$strain != "I")),]
+data2 <- data2[which(!(data2$strain == "I" & data2$antibiotics != "none")),]
+
+data2 <- mutate(data2, count = 1)
+for (i in 1:nrow(data2)) {
+  if (data2$antibiotics[i] == "kan") data2$count[i] <- "D"
+  if (data2$antibiotics[i] == "novo") data2$count[i] <- "G"
+  if (data2$antibiotics[i] == "none") data2$count[i] <- "total"
+  if (data2$antibiotics[i] == "none" & data2$strain[i] == "I") data2$count[i] <- "I"
+}
+data2 <- pivot_wider(data2, id_cols = -c("dilution", "cfus", "logspores"), names_from = "count", values_from = "numspores")
+
+for (i in 1:nrow(data2)) {
+  if (!(is.na(data2$total[i])) & data2$strain[i] == "D") data2$I[i] <- data2$total[i] - data2$D[data2$replicate == data2$replicate[i] & data2$plate == data2$plate[i] & data2$antibiotics == "kan"]
+  if (!(is.na(data2$total[i])) & data2$strain[i] == "G") data2$I[i] <- data2$total[i] - data2$G[data2$replicate == data2$replicate[i] & data2$plate == data2$plate[i] & data2$antibiotics == "novo"]
+  if (!(is.na(data2$G[i])) & data2$strain2[i] == "G") data2$total[i] <- data2$G[i] + data2$D[data2$replicate == data2$replicate[i] & data2$plate == data2$plate[i] & data2$antibiotics == "kan"]
+}
+
+data2 <- pivot_longer(data2, cols = 10:13, names_to = "count", values_to = "numspores", values_drop_na = T)
+
+data2$count <- as.factor(data2$count)
+data2$count <- factor(data2$count, levels = c("D", "I", "G", "total"))
+
+# drop the antibiotics column because it no longer makes sense
+data2 <- subset(data2, select = -c(antibiotics))
+```
+
+```{r}
+#calculate the total number of spores
+data2 <- mutate(data2, logspores = log10(numspores + 1))
+```
+
+
+Calculate the mixing effect
+
+Ci(j) = log10(final spores of strain i in mixture with j/initial cells of strain i in mixture with j) - log10(final spores of strain i in pure culture/initial cells of strain i in pure culture)
+
+This is equivalent to
+
+Ci(j) = log10((number of cells in PC/number of cells of i in the initial mixture with j) * (number of spores of i produced in mixture with j/number of spores i produced in PC))
+
+We know from the protocol that the same total number of cells was used to initiate development, and that in mixes, strains were combined 1:1. In this case, we get
+
+Ci(j) = log10(2 * (number of spores of i produced in mixture with j/number of spores i produced in PC))
+
+```{r}
+# take only the data for mixes
+datamix <- data2[which(data2$strain2 != "none" & data2$count != "total"),]
+datamix <- droplevels(datamix) # drop unused levels inherited from the parent data set
+
+# we already have the corresponding pure culture data
+# initialize the Ci(j) column
+datamix <- mutate(datamix, cij = 17)
+
+# for each strain in each mixture, calculate the Ci(j)
+for (i in 1:nrow(datamix)) {
+  # relevant nutrient condition for this Ci(j)
+  if (datamix$count[i] == datamix$strain[i]) relnut <- datamix$nutrients[i] 
+  if (datamix$count[i] == datamix$strain2[i]) relnut <- datamix$nutrients2[i]
+  
+  if (datamix$numspores[i] < 1) datamix$numspores[i] <- 1
+  
+  datamix$cij[i] <- log10(2 * datamix$numspores[i]/dataPC[which(dataPC$replicate == datamix$replicate[i] & dataPC$strain == datamix$count[i] & dataPC$nutrients == relnut),"numspores"])
+}
+
+```
+
+
+```{r}
+pcij <- ggplot(datamix, aes(x = trt, y = cij, color = count)) +
+  geom_abline(slope = 0, intercept = 0, color = "grey") +
+  geom_point(size = 2, alpha = 0.3, show.legend = FALSE, position = position_dodge(width = 0.5)) +
+  stat_summary(fun.data = "mean_cl_normal", size = 0.7, aes(y = cij), position = position_dodge(width = 0.5)) +
+  customPlotTheme +
+  scale_color_viridis_d(option = "magma", begin = 0.25, end = 0.8, direction = 1) +
+  facet_wrap(~pair, dir = "v", ncol = 3) +
+  labs(y = "Mixing effect "~italic(C[i](j))~"", x = "Nutrient histories", color = "Strain")
+pcij
+```
+
+
+```{r}
+pspores <- ggplot(datamix, aes(x = trt, y = logspores, color = count)) +
+  geom_abline(slope = 0, intercept = 0, color = "grey") +
+  geom_point(size = 2, alpha = 0.3, show.legend = FALSE, position = position_dodge(width = 0.5)) +
+  stat_summary(fun.data = "mean_cl_normal", size = 0.7, aes(y = logspores), position = position_dodge(width = 0.5)) +
+  customPlotTheme +
+  scale_color_viridis_d(option = "magma", begin = 0.25, end = 0.8, direction = 1) +
+  facet_wrap(~pair, dir = "v", ncol = 3) +
+  labs(y = expression(Log[10]("spore count")), x = "Nutrient histories", color = "Strain")
+pspores
+```
+
+```{r}
+bijdata <- data2[which(data2$pair != "none" & data2$count == "total"),]
+
+# initialize the Bi(j) column
+bijdata <- mutate(bijdata, bij = 17)
+
+# for each strain in each mixture, calculate the Ci(j)
+for (i in 1:nrow(bijdata)) {
+  # relevant nutrient condition for this Ci(j)
+  if (bijdata$pair[i] == "D:I") bijdata$bij[i] <- bijdata$logspores[i] - log10((10^5)/2 + (10^6.5)/2)
+  if (bijdata$pair[i] == "D:G") bijdata$bij[i] <- bijdata$logspores[i] - log10((10^5)/2 + (10^5.5)/2)
+  if (bijdata$pair[i] == "I:G") bijdata$bij[i] <- bijdata$logspores[i] - log10((10^5.5)/2 + (10^5.5)/2)
+}
+
+pspores3 <- ggplot(bijdata, aes(x = trt, y = bij, label = replicate)) +
+  geom_abline(slope = 0, intercept = 0, color = "darkgrey") +
+  geom_text(position = "jitter", show.legend = FALSE) +
+  geom_point(size = 2, alpha = 0.3, show.legend = FALSE, position = position_dodge(width = 0.5)) +
+  stat_summary(fun.data = "mean_cl_normal", size = 0.7, aes(y = bij), position = position_dodge(width = 0.5)) +
+  customPlotTheme +
+  scale_color_viridis_d(option = "magma", begin = 0.25, end = 0.8, direction = 1) +
+  facet_wrap(~pair, dir = "v", ncol = 3) +
+  labs(y = ""~italic(B[ij])~"", x = "Nutrient histories")
+pspores3
+```
+
+
+```{r}
+bar <- summarySE(data = datamix, measurevar = "logspores", groupvars = c("count", "trt", "pair"))
+
+pspores2 <- ggplot(bar, aes(x = trt, y = logspores, fill = count)) +
+  geom_abline(slope = 0, intercept = 0, color = "grey") +
+  geom_bar(aes(y = logspores), stat = "identity", position = "stack") +
+  #geom_point(aes(fill = count), color = "black", size = 2, show.legend = FALSE, position = "jitter") +
+  customPlotTheme +
+  scale_fill_viridis_d(option = "magma", begin = 0.25, end = 0.8, direction = 1) +
+  facet_wrap(~pair, dir = "v", ncol = 3) +
+  labs(y = expression(Log[10]("spore count")), x = "Nutrient histories", fill = "Strain")
+pspores2
+```
+
+#### 3.1: statistics
+
+We would like to know if prior nutrient condition of the strains affects their performance in mixture. We first test the competitive hierarchy of the strains by focusing on the high/high nutrient condition and looking at whether the Ci(j)s are different from zero (i.e. did being in mixture affect the performance of the strain).
+
+Specifically, we are interested in exploitation. We say that strain i exploits j when Ci(j) is greater than zero.
+
+We first test for the transitive exploitation hierarchy which has been previously observed: D exploits I and G, and I exploits G (under H/H, which are the standard lab conditions). We use individual one-tailed t-tests.
+
+```{r}
+c("D exploits I")
+t.test(datamix[which(datamix$plate == "D high:I high" & datamix$count == "D"), "cij"], alternative = "greater", mu = 0)
+
+c("D exploits G")
+t.test(x = datamix[which(datamix$plate == "D high:G high" & datamix$count == "D"), "cij"], alternative = "greater", mu = 0)
+
+c("I exploits G")
+t.test(x = datamix[which(datamix$plate == "G high:I high" & datamix$count == "I"), "cij"], alternative = "greater", mu = 0)
+```
+
+Now we test for exploitation across all nutritional history treatments for each pair.
+
+##### 3.1.1: D:I
+
+ANOVA for effect of nutritional history on the two competitors.
+
+```{r}
+fit <- aov(cij ~ count * trt, data = datamix[which(datamix$pair == "D:I"),])
+plot(fit)
+summary(fit)
+```
+t-tests for Ci(j)s different from zero:
+
+```{r}
+dataT <- datamix[which(datamix$pair == "D:I" & datamix$trt != "H/H"),]
+dataT <- droplevels(dataT)
+
+# initialize a data frame to store the resulting p-value, mean, and 95% CI for each test
+ttests <- data.frame(plate = levels(dataT$plate), strain = levels(dataT$strain)[1], pval = 1, tstat = 1, df = 1, stdev = 1, mean = 1, CIlower = 1, CIupper = 1)
+ttests2 <- data.frame(plate = levels(dataT$plate), strain = levels(dataT$strain2)[1], pval = 1, tstat = 1, df = 1, stdev = 1, mean = 1, CIlower = 1, CIupper = 1)
+ttests <- dplyr::bind_rows(ttests, ttests2)
+
+# initialize a vector to store the p-values from each test so that they can be corrected for multiple testing
+pvalues <- c()
+
+# run the iterated tests
+for (i in 1:nrow(ttests)) {
+  n = 4 # the number of samples
+  dataTest <- subset(dataT, plate == ttests$plate[i] & count == ttests$strain[i])
+  res <- t.test(dataTest$cij, alternative = "two.sided", mu = 0)
+  pvalues <- c(pvalues, res$p.value)
+  ttests[i,4] <- res$statistic
+  ttests[i,5] <- res$parameter
+  ttests[i,6] <- res$stderr * n^2
+  ttests[i,7] <- as.numeric(res$estimate[1])
+  ttests[i,8] <- as.numeric(res$conf.int[1])
+  ttests[i,9] <- as.numeric(res$conf.int[2])
+}
+
+# do the multiple testing correction
+pCorr <- round(p.adjust(pvalues, method = "BH"), 4)
+
+# enter the corrected p-values into the data frame
+for (i in 1:nrow(ttests)) {
+  ttests[i,3] <- pCorr[i]
+}
+ttests
+```
+
+Dunnett tests for difference in other nutritional history treatments from H/H treatment (standard lab conditions):
+
+```{r}
+dataT <- datamix[which(datamix$pair == "D:I"),]
+dataT <- droplevels(dataT)
+
+c("D")
+DunnettTest(cij ~ trt, data = dataT[which(dataT$count == "D"),], control = "H/H")
+
+c("I")
+DunnettTest(cij ~ trt, data = dataT[which(dataT$count == "I"),], control = "H/H")
+```
+
+
+##### 3.1.2: D:G
+
+ANOVA for effect of nutritional history on the two competitors.
+
+```{r}
+fit <- aov(cij ~ count * trt, data = datamix[which(datamix$pair == "D:G"),])
+plot(fit)
+summary(fit)
+```
+
+t-tests for Ci(j)s different from zero:
+
+```{r}
+dataT <- datamix[which(datamix$pair == "D:G" & datamix$trt != "H/H"),]
+dataT <- droplevels(dataT)
+
+# initialize a data frame to store the resulting p-value, mean, and 95% CI for each test
+ttests <- data.frame(plate = levels(dataT$plate), strain = levels(dataT$strain)[1], pval = 1, tstat = 1, df = 1, stdev = 1, mean = 1, CIlower = 1, CIupper = 1)
+ttests2 <- data.frame(plate = levels(dataT$plate), strain = levels(dataT$strain2)[1], pval = 1, tstat = 1, df = 1, stdev = 1, mean = 1, CIlower = 1, CIupper = 1)
+ttests <- dplyr::bind_rows(ttests, ttests2)
+
+# initialize a vector to store the p-values from each test so that they can be corrected for multiple testing
+pvalues <- c()
+
+# run the iterated tests
+for (i in 1:nrow(ttests)) {
+  n = 4 # the number of samples
+  dataTest <- subset(dataT, plate == ttests$plate[i] & count == ttests$strain[i])
+  res <- t.test(dataTest$cij, alternative = "two.sided", mu = 0)
+  pvalues <- c(pvalues, res$p.value)
+  ttests[i,4] <- res$statistic
+  ttests[i,5] <- res$parameter
+  ttests[i,6] <- res$stderr * n^2
+  ttests[i,7] <- as.numeric(res$estimate[1])
+  ttests[i,8] <- as.numeric(res$conf.int[1])
+  ttests[i,9] <- as.numeric(res$conf.int[2])
+}
+
+# do the multiple testing correction
+pCorr <- round(p.adjust(pvalues, method = "BH"), 4)
+
+# enter the corrected p-values into the data frame
+for (i in 1:nrow(ttests)) {
+  ttests[i,3] <- pCorr[i]
+}
+ttests
+```
+
+Dunnett tests for difference in other nutritional history treatments from H/H treatment (standard lab conditions):
+
+```{r}
+dataT <- datamix[which(datamix$pair == "D:G"),]
+dataT <- droplevels(dataT)
+
+c("D")
+DunnettTest(cij ~ trt, data = dataT[which(dataT$count == "D"),], control = "H/H")
+
+c("G")
+DunnettTest(cij ~ trt, data = dataT[which(dataT$count == "G"),], control = "H/H")
+```
+
+
+##### 3.1.3: I:G
+
+ANOVA for effect of nutritional history on the two competitors.
+
+```{r}
+fit <- aov(cij ~ count * trt, data = datamix[which(datamix$pair == "I:G"),])
+plot(fit)
+summary(fit)
+```
+
+t-tests for Ci(j)s different from zero:
+
+```{r}
+dataT <- datamix[which(datamix$pair == "I:G" & datamix$trt != "H/H"),]
+dataT <- droplevels(dataT)
+
+# initialize a data frame to store the resulting p-value, mean, and 95% CI for each test
+ttests <- data.frame(plate = levels(dataT$plate), strain = levels(dataT$strain)[1], pval = 1, tstat = 1, df = 1, stdev = 1, mean = 1, CIlower = 1, CIupper = 1)
+ttests2 <- data.frame(plate = levels(dataT$plate), strain = levels(dataT$strain2)[1], pval = 1, tstat = 1, df = 1, stdev = 1, mean = 1, CIlower = 1, CIupper = 1)
+ttests <- dplyr::bind_rows(ttests, ttests2)
+
+# initialize a vector to store the p-values from each test so that they can be corrected for multiple testing
+pvalues <- c()
+
+# run the iterated tests
+for (i in 1:nrow(ttests)) {
+  n = 4 # the number of samples
+  dataTest <- subset(dataT, plate == ttests$plate[i] & count == ttests$strain[i])
+  res <- t.test(dataTest$cij, alternative = "two.sided", mu = 0)
+  pvalues <- c(pvalues, res$p.value)
+  ttests[i,4] <- res$statistic
+  ttests[i,5] <- res$parameter
+  ttests[i,6] <- res$stderr * n^2
+  ttests[i,7] <- as.numeric(res$estimate[1])
+  ttests[i,8] <- as.numeric(res$conf.int[1])
+  ttests[i,9] <- as.numeric(res$conf.int[2])
+}
+
+# do the multiple testing correction
+pCorr <- round(p.adjust(pvalues, method = "BH"), 4)
+
+# enter the corrected p-values into the data frame
+for (i in 1:nrow(ttests)) {
+  ttests[i,3] <- pCorr[i]
+}
+ttests
+```
+
+Dunnett tests for difference in other nutritional history treatments from H/H treatment (standard lab conditions):
+
+```{r}
+dataT <- datamix[which(datamix$pair == "I:G"),]
+dataT <- droplevels(dataT)
+
+c("I")
+DunnettTest(cij ~ trt, data = dataT[which(dataT$count == "I"),], control = "H/H")
+
+c("G")
+DunnettTest(cij ~ trt, data = dataT[which(dataT$count == "G"),], control = "H/H")
+```
+
+
+### Output figures
+
+```{r}
+# we alter the graph to fit into the combined figure
+pPC2 <- ggplot(dataPC, aes(x = strain, y = logspores, color = nutrients)) +
+  geom_point(size = 2, alpha = 0.3, show.legend = FALSE, position = position_dodge(width = 0.5)) +
+  stat_summary(fun.data = "mean_cl_normal", size = 0.7, aes(y = logspores), position = position_dodge(width = 0.5)) +
+  coord_cartesian(ylim = c(0,8)) +
+  labs(y = element_blank(), x = "Strain in pure culture", title = "B", color = "Nutrient history") +
+  customPlotTheme +
+  scale_color_viridis_d(option = "magma", begin = 0.25, end = 0.8, direction = 1)
+pPC2
+```
+
+```{r echo = FALSE, include = FALSE}
+# assemble the PC spore production graphs into one figure
+#figure <- gridExtra::grid.arrange(pPC, pPC2, widths = c(4/9, 5/9), ncol = 2) # this requires the code in "rmd_labstrains.Rmd" to be run first # widths argument gets the body of each plot to be the same size even though the legend to the right technically belongs to panel B and take up some of its space
+
+# save the figure files
+#ggsave(figure, filename = "Fig1_naturalisolates.png", width = 25, height = 10, units = "cm")
+ggsave(pcij, filename = "Fig3_naturalisolates.png", width = 25, height = 10, units = "cm")
+ggsave(pspores, filename = "FigS2_naturalisolates.png", width = 25, height = 10, units = "cm")
+ggsave(pspores2, filename = "FigS2.2_naturalisolates.png", width = 25, height = 10, units = "cm")
+```

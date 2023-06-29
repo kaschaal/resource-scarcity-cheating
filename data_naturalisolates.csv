@@ -1,0 +1,159 @@
+replicate,plate,pair,trt,strain,nutrients,strain2,nutrients2,antibiotics,dilution,cfus
+1,D high,none,none,D,high,none,none,none,4,61
+1,D high,none,none,D,high,none,none,kan,4,85
+1,D low,none,none,D,low,none,none,none,3,181
+1,D low,none,none,D,low,none,none,kan,3,482
+1,DK801 high,none,none,DK801,high,none,none,none,3,4
+1,DK801 low,none,none,DK801,low,none,none,none,3,1
+1,G high,none,none,G,high,none,none,novo,4,25
+1,G high,none,none,G,high,none,none,none,4,20
+1,G low,none,none,G,low,none,none,novo,4,58
+1,G low,none,none,G,low,none,none,none,4,44
+1,Mxx41 high,none,none,Mxx41,high,none,none,none,4,144
+1,I high,none,none,I,high,none,none,none,4,239
+1,I high,none,none,I,high,none,none,novo,4,0
+1,I high,none,none,I,high,none,none,kan,4,0
+1,I low,none,none,I,low,none,none,none,4,52
+1,D high:I high,D:I,H/H,D,high,I,high,none,3,104
+1,D high:I high,D:I,H/H,D,high,I,high,kan,3,199
+1,D low:I low,D:I,L/L,D,low,I,low,none,3,223
+1,D low:I low,D:I,L/L,D,low,I,low,kan,4,54
+1,D high:I low,D:I,H/L,D,high,I,low,none,3,255
+1,D high:I low,D:I,H/L,D,high,I,low,kan,4,58
+1,D low:I high,D:I,L/H,D,low,I,high,none,3,28
+1,D low:I high,D:I,L/H,D,low,I,high,kan,3,146
+1,G high:I high,I:G,H/H,G,high,I,high,none,5,42
+1,G high:I high,I:G,H/H,G,high,I,high,novo,1,134
+1,G low:I low,I:G,L/L,G,low,I,low,none,4,91
+1,G low:I low,I:G,L/L,G,low,I,low,novo,1,103
+1,G high:I low,I:G,L/H,G,high,I,low,none,5,29
+1,G high:I low,I:G,L/H,G,high,I,low,novo,2,75
+1,G low:I high,I:G,H/L,G,low,I,high,none,4,328
+1,G low:I high,I:G,H/L,G,low,I,high,novo,1,0
+1,D high:G high,D:G,H/H,D,high,G,high,novo,1,0
+1,D high:G high,D:G,H/H,D,high,G,high,kan,4,94
+1,D low:G low,D:G,L/L,D,low,G,low,novo,1,0
+1,D low:G low,D:G,L/L,D,low,G,low,kan,4,28
+1,D high:G low,D:G,H/L,D,high,G,low,novo,1,0
+1,D high:G low,D:G,H/L,D,high,G,low,kan,4,83
+1,D low:G high,D:G,L/H,D,low,G,high,novo,1,0
+1,D low:G high,D:G,L/H,D,low,G,high,kan,4,30
+2,D high,none,none,D,high,none,none,none,3,208
+2,D high,none,none,D,high,none,none,kan,3,118
+2,D low,none,none,D,low,none,none,none,4,136
+2,D low,none,none,D,low,none,none,kan,3,387
+2,DK801 high,none,none,DK801,high,none,none,none,2,69
+2,DK801 high,none,none,DK801,high,none,none,kan,3,0
+2,DK801 high,none,none,DK801,high,none,none,novo,3,0
+2,DK801 low,none,none,DK801,low,none,none,none,2,38
+2,G high,none,none,G,high,none,none,novo,4,170
+2,G high,none,none,G,high,none,none,none,4,170
+2,G low,none,none,G,low,none,none,novo,4,138
+2,G low,none,none,G,low,none,none,none,4,126
+2,Mxx41 high,none,none,Mxx41,high,none,none,none,4,184
+2,I high,none,none,I,high,none,none,none,4,175
+2,I low,none,none,I,low,none,none,none,5,55
+2,I low,none,none,I,low,none,none,novo,3,0
+2,I low,none,none,I,low,none,none,kan,3,0
+2,D high:I high,D:I,H/H,D,high,I,high,none,4,56
+2,D high:I high,D:I,H/H,D,high,I,high,kan,3,62
+2,D low:I low,D:I,L/L,D,low,I,low,none,4,70
+2,D low:I low,D:I,L/L,D,low,I,low,kan,3,28
+2,D high:I low,D:I,H/L,D,high,I,low,none,3,116
+2,D high:I low,D:I,H/L,D,high,I,low,kan,3,11
+2,D low:I high,D:I,L/H,D,low,I,high,none,4,63
+2,D low:I high,D:I,L/H,D,low,I,high,kan,3,162
+2,G high:I high,I:G,H/H,G,high,I,high,none,4,249
+2,G high:I high,I:G,H/H,G,high,I,high,novo,1,0
+2,G low:I low,I:G,L/L,G,low,I,low,none,5,49
+2,G low:I low,I:G,L/L,G,low,I,low,novo,1,0
+2,G high:I low,I:G,L/H,G,high,I,low,none,5,92
+2,G high:I low,I:G,L/H,G,high,I,low,novo,1,0
+2,G low:I high,I:G,H/L,G,low,I,high,none,5,34
+2,G low:I high,I:G,H/L,G,low,I,high,novo,1,0
+2,D high:G high,D:G,H/H,D,high,G,high,novo,1,0
+2,D high:G high,D:G,H/H,D,high,G,high,kan,4,59
+2,D low:G low,D:G,L/L,D,low,G,low,novo,1,0
+2,D low:G low,D:G,L/L,D,low,G,low,kan,3,61
+2,D high:G low,D:G,H/L,D,high,G,low,novo,1,0
+2,D high:G low,D:G,H/L,D,high,G,low,kan,3,68
+2,D low:G high,D:G,L/H,D,low,G,high,novo,1,0
+2,D low:G high,D:G,L/H,D,low,G,high,kan,4,32
+3,D high,none,none,D,high,none,none,none,3,113
+3,D high,none,none,D,high,none,none,kan,3,64
+3,D low,none,none,D,low,none,none,none,3,5
+3,D low,none,none,D,low,none,none,kan,3,6
+3,DK801 high,none,none,DK801,high,none,none,none,2,37
+3,DK801 low,none,none,DK801,low,none,none,none,2,13
+3,G high,none,none,G,high,none,none,novo,3,125
+3,G high,none,none,G,high,none,none,none,3,110
+3,G low,none,none,G,low,none,none,novo,4,33
+3,G low,none,none,G,low,none,none,none,4,38
+3,Mxx41 high,none,none,Mxx41,high,none,none,none,4,56
+3,I high,none,none,I,high,none,none,none,4,173
+3,I high,none,none,I,high,none,none,novo,4,0
+3,I high,none,none,I,high,none,none,kan,4,0
+3,I low,none,none,I,low,none,none,none,4,52
+3,D high:I high,D:I,H/H,D,high,I,high,none,3,91
+3,D high:I high,D:I,H/H,D,high,I,high,kan,3,77
+3,D low:I low,D:I,L/L,D,low,I,low,none,4,1
+3,D low:I low,D:I,L/L,D,low,I,low,kan,3,0
+3,D high:I low,D:I,H/L,D,high,I,low,none,3,49
+3,D high:I low,D:I,H/L,D,high,I,low,kan,2,353
+3,D low:I high,D:I,L/H,D,low,I,high,none,4,60
+3,D low:I high,D:I,L/H,D,low,I,high,kan,2,2
+3,G high:I high,I:G,H/H,G,high,I,high,none,4,121
+3,G high:I high,I:G,H/H,G,high,I,high,novo,1,0
+3,G low:I low,I:G,L/L,G,low,I,low,none,4,48
+3,G low:I low,I:G,L/L,G,low,I,low,novo,1,0
+3,G high:I low,I:G,L/H,G,high,I,low,none,4,33
+3,G high:I low,I:G,L/H,G,high,I,low,novo,1,3
+3,G low:I high,I:G,H/L,G,low,I,high,none,4,140
+3,G low:I high,I:G,H/L,G,low,I,high,novo,1,0
+3,D high:G high,D:G,H/H,D,high,G,high,novo,1,0
+3,D high:G high,D:G,H/H,D,high,G,high,kan,3,194
+3,D low:G low,D:G,L/L,D,low,G,low,novo,1,0
+3,D low:G low,D:G,L/L,D,low,G,low,kan,3,2
+3,D high:G low,D:G,H/L,D,high,G,low,novo,1,0
+3,D high:G low,D:G,H/L,D,high,G,low,kan,3,93
+3,D low:G high,D:G,L/H,D,low,G,high,novo,1,0
+3,D low:G high,D:G,L/H,D,low,G,high,kan,3,30
+4,D high,none,none,D,high,none,none,none,4,53
+4,D high,none,none,D,high,none,none,kan,3,69
+4,D low,none,none,D,low,none,none,none,4,49
+4,D low,none,none,D,low,none,none,kan,3,100
+4,DK801 high,none,none,DK801,high,none,none,none,2,57
+4,DK801 low,none,none,DK801,low,none,none,none,2,28
+4,G high,none,none,G,high,none,none,novo,3,136
+4,G high,none,none,G,high,none,none,none,3,219
+4,G low,none,none,G,low,none,none,novo,4,42
+4,G low,none,none,G,low,none,none,none,4,98
+4,Mxx41 high,none,none,Mxx41,high,none,none,none,4,684
+4,I high,none,none,I,high,none,none,none,5,111
+4,I high,none,none,I,high,none,none,novo,4,0
+4,I high,none,none,I,high,none,none,kan,4,0
+4,I low,none,none,I,low,none,none,none,5,56
+4,D high:I high,D:I,H/H,D,high,I,high,none,4,6
+4,D high:I high,D:I,H/H,D,high,I,high,kan,3,25
+4,D low:I low,D:I,L/L,D,low,I,low,none,3,28
+4,D low:I low,D:I,L/L,D,low,I,low,kan,3,16
+4,D high:I low,D:I,H/L,D,high,I,low,none,3,129
+4,D high:I low,D:I,H/L,D,high,I,low,kan,3,44
+4,D low:I high,D:I,L/H,D,low,I,high,none,3,78
+4,D low:I high,D:I,L/H,D,low,I,high,kan,2,173
+4,G high:I high,I:G,H/H,G,high,I,high,none,5,70
+4,G high:I high,I:G,H/H,G,high,I,high,novo,1,0
+4,G low:I low,I:G,L/L,G,low,I,low,none,5,81
+4,G low:I low,I:G,L/L,G,low,I,low,novo,1,0
+4,G high:I low,I:G,L/H,G,high,I,low,none,5,37
+4,G high:I low,I:G,L/H,G,high,I,low,novo,1,1
+4,G low:I high,I:G,H/L,G,low,I,high,none,5,112
+4,G low:I high,I:G,H/L,G,low,I,high,novo,1,0
+4,D high:G high,D:G,H/H,D,high,G,high,novo,1,0
+4,D high:G high,D:G,H/H,D,high,G,high,kan,3,63
+4,D low:G low,D:G,L/L,D,low,G,low,novo,1,0
+4,D low:G low,D:G,L/L,D,low,G,low,kan,3,31
+4,D high:G low,D:G,H/L,D,high,G,low,novo,1,0
+4,D high:G low,D:G,H/L,D,high,G,low,kan,3,35
+4,D low:G high,D:G,L/H,D,low,G,high,novo,1,0
+4,D low:G high,D:G,L/H,D,low,G,high,kan,3,30
