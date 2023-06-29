@@ -6,7 +6,9 @@ data_labstrains.csv
 data_naturalisolates.csv
 Data were collected by Pauline Manhes.
 
-Data are analyzed in R, by the files rmd_labstrains.Rmd and rmd_naturalisolates.Rmd. This analysis is documented in the files doc_labstrains.html and doc_naturalisolates.html.
+Data are analyzed in R, by the files rmd_labstrains.Rmd and rmd_naturalisolates.Rmd. These produce the data figures shown in the paper. 
+
+The analysis is documented in the files doc_labstrains.html and doc_naturalisolates.html.
 
 ## Notes on data files
 ### data_labstrains.csv
