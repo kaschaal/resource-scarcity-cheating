@@ -1,4 +1,4 @@
-README for data associated with “Resource scarcity prevents cheating in a highly social bacterium”
+README for data associated with “Ecological histories determine the success of social exploitation”
 
 ## Overview
 This project investigates the effect of the level of nutrient availability on subsequent proficiency of sporulation in a cooperatively sporulating soil bacterium. It comprises two experiments. The raw data from these experiments may be found in the files:
